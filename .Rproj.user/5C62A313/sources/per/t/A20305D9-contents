@@ -1,0 +1,150 @@
+# This file helps analyze ARC scenarios
+library("sf")
+library("tmap")
+library("readr")
+library("dplyr")
+library("ggplot2")
+library("stringr")
+library("glue")
+
+# Read Bzone and Azone shapefiles
+Bzones <- read_sf("./data/Bzone/tl_2010_13_tract10.shp")
+Azones <- read_sf("./data/Azone/tl_2010_13_county10.shp")
+
+# Read results for households in both scenarios
+households_007_50 <- read_csv("./models/ARC007/results/output/Extract_2022-08-02_15-09-05/_2050_Household_2022-08-01_16-42-07.csv")
+households_001_50 <- read_csv("./models/ARC001/results/output/Extract_2022-08-04_12-11-10/_2050_Household_2022-08-01_13-14-38.csv")
+
+# Aggrregate results by B Zone
+Bzone_007_50 <- households_007_50 %>% 
+  group_by(Bzone) %>% 
+  summarize_at(vars(contains("trip"),"Dvmt","HhSize","DailyCO2e"), sum)
+
+Bzone_001_50 <- households_001_50 %>% 
+  group_by(Bzone) %>% 
+  summarize_at(vars(contains("trip"),"Dvmt","HhSize","DailyCO2e"), sum)
+
+# Aggrregate results by A Zone
+Azone_007_50 <- households_007_50 %>% 
+  group_by(Azone) %>% 
+  summarize_at(vars(contains("trip"),"Dvmt","HhSize","DailyCO2e"), sum)
+
+Azone_001_50 <- households_001_50 %>% 
+  group_by(Azone) %>% 
+  summarize_at(vars(contains("trip"),"Dvmt","HhSize","DailyCO2e"), sum)
+
+# Define A Zone categories
+core <- c("DeKalb", "Fulton", "Clayton", "Cobb", "Gwinnett") %>% 
+  toupper()
+suburb <- c("Douglas", "Fayette", "Forsyth", "Henry", "Paulding", "Rockdale", "Walton") %>% 
+  toupper()
+rural <- c("Barrow", "Bartow", "Carroll", "Cherokee", "Coweta", "Hall", "Newton", "Spalding", "Dawson") %>% 
+  toupper()
+
+Azone_categories <- Azones %>% 
+  st_drop_geometry() %>% 
+  select(c("COUNTYFP10","NAME10")) %>% 
+  mutate(NAME10 = toupper(NAME10),
+         category = if_else(NAME10 %in% core,"core",
+                            if_else(NAME10 %in% suburb,"suburb",
+                                    if_else(NAME10 %in% rural,"rural","NA")))) %>% 
+  select(c("COUNTYFP10","category"))
+
+# Append results to Azone shapefiles
+Azones_2050 <- Azones %>% 
+  transmute(county_trim = word(NAMELSAD10,1),
+            county_trim = toupper(county_trim)) %>% 
+  left_join(Azone_001_50, by = c("county_trim"="Azone")) %>% 
+  rename_at(vars(-county_trim,-geometry), ~ paste0(., '_001')) %>% 
+  left_join(Azone_007_50, by = c("county_trim"="Azone")) %>%  
+  rename_at(vars(-(1:10)), ~ paste0(., '_007'))  %>% 
+  mutate(category = if_else(county_trim %in% core,"core",
+                            if_else(county_trim %in% suburb,"suburb",
+                                    if_else(county_trim %in% rural,"rural","NA"))),
+         walktrips = WalkTrips_007 -WalkTrips_001,
+         biketrips = BikeTrips_007 - BikeTrips_001,
+         transitTrips = TransitTrips_007  - TransitTrips_001,
+         VehicleTrips = VehicleTrips_007- VehicleTrips_001,
+         AveVehTripLen = AveVehTripLen_007 - AveVehTripLen_001,
+         Dvmt = Dvmt_007 - Dvmt_001,
+         HhSize = HhSize_007 - HhSize_001,
+         DailyCO2e = DailyCO2e_007 - DailyCO2e_001)
+          
+# Append results to Bzone shapefiles
+Bzones_2050 <- Bzones %>% 
+  transmute(tract = as.double(GEOID10),
+            county_trim = as.character(COUNTYFP10)) %>% 
+  left_join(Bzone_001_50, by = c("tract"="Bzone"))%>% 
+  rename_at(vars(-tract,-geometry,-county_trim), ~ paste0(., '_001')) %>% 
+  left_join(Bzone_007_50, by = c("tract"="Bzone")) %>%  
+  rename_at(vars(-(1:11)), ~ paste0(., '_007'))%>% 
+  left_join(Azone_categories, by = c("county_trim" = "COUNTYFP10" )) %>% 
+  mutate(
+         walktrips = WalkTrips_007 -WalkTrips_001,
+         biketrips = BikeTrips_007 - BikeTrips_001,
+         transitTrips = TransitTrips_007  - TransitTrips_001,
+         VehicleTrips = VehicleTrips_007- VehicleTrips_001,
+         AveVehTripLen = AveVehTripLen_007 - AveVehTripLen_001,
+         Dvmt = Dvmt_007 - Dvmt_001,
+         HhSize = HhSize_007 - HhSize_001,
+         DailyCO2e = DailyCO2e_007 - DailyCO2e_001)
+
+# Plot and Save
+# Wrote a scatterplot function for easier plotting
+scatterplot <- function(data,x,y,category,name){
+  p <- ggplot(data,aes(x={{x}}, y={{y}}, color={{category}})) + 
+    geom_point() +
+    geom_abline()
+
+  ggsave(glue("./charts/",name,".png"),plot = p)
+  p
+}
+
+
+scatterplot(Bzones_2050,WalkTrips_001,WalkTrips_007,category,"Bzones_walktrips")
+scatterplot(Bzones_2050,AveVehTripLen_001,AveVehTripLen_007,category,"Bzones_AveVehTripLen")
+scatterplot(Bzones_2050,BikeTrips_001,BikeTrips_007,category,"Bzones_biketrips")
+scatterplot(Bzones_2050,VehicleTrips_001,VehicleTrips_007,category,"Bzones_vehicletrips")
+scatterplot(Bzones_2050,Dvmt_001,Dvmt_007,category,"Bzones_dvmt")
+scatterplot(Bzones_2050,TransitTrips_001,TransitTrips_007,category,"Bzones_transittrips")
+scatterplot(Bzones_2050,HhSize_001,HhSize_007,category,"Bzones_hhsize")
+scatterplot(Bzones_2050,DailyCO2e_001,DailyCO2e_007,category,"Bzones_DailyCO2e")
+
+
+scatterplot(Azones_2050,WalkTrips_001,WalkTrips_007,category,"Azones_walktrips")
+scatterplot(Azones_2050,AveVehTripLen_001,AveVehTripLen_007,category,"Azones_AveVehTripLen")
+scatterplot(Azones_2050,BikeTrips_001,BikeTrips_007,category,"Azones_biketrips")
+scatterplot(Azones_2050,VehicleTrips_001,VehicleTrips_007,category,"Azones_vehicletrips")
+scatterplot(Azones_2050,Dvmt_001,Dvmt_007,category,"Azones_dvmt")
+scatterplot(Azones_2050,TransitTrips_001,TransitTrips_007,category,"Azones_transittrips")
+scatterplot(Azones_2050,HhSize_001,HhSize_007,category,"Azones_hhsize")
+scatterplot(Azones_2050,DailyCO2e_001,DailyCO2e_007,category,"Azones_DailyCO2e")
+
+# Wrote a mapping function for easier mapping
+scenario_map <- function(data,col,name){
+  p <- tm_shape(data)+
+    tm_fill(col = col , palette = "YlOrRd")
+  
+  tmap_save(p, paste0("./charts/",name,".png"))
+  p
+}
+
+scenario_map(Azones_2050,"walktrips","Azones_walktrips_map")
+scenario_map(Azones_2050,"biketrips","Azones_biketrips_map")
+scenario_map(Azones_2050,"transitTrips","Azones_transitTrips_map")
+scenario_map(Azones_2050,"VehicleTrips","Azones_VehicleTrips_map")
+scenario_map(Azones_2050,"AveVehTripLen","Azones_AveVehTripLen_map")
+scenario_map(Azones_2050,"Dvmt","Azones_Dvmt")
+scenario_map(Azones_2050,"HhSize","Azones_HhSize_map")
+scenario_map(Azones_2050,"DailyCO2e","Azones_DailyCO2e_map")
+
+
+scenario_map(Bzones_2050,"walktrips","Bzones_walktrips_map")
+scenario_map(Bzones_2050,"biketrips","Bzones_biketrips_map")
+scenario_map(Bzones_2050,"transitTrips","Bzones_transitTrips_map")
+scenario_map(Bzones_2050,"VehicleTrips","Bzones_VehicleTrips_map")
+scenario_map(Bzones_2050,"AveVehTripLen","Bzones_AveVehTripLen_map")
+scenario_map(Bzones_2050,"Dvmt","Bzones_Dvmt")
+scenario_map(Bzones_2050,"HhSize","Bzones_HhSize_map")
+scenario_map(Bzones_2050,"DailyCO2e","Bzones_DailyCO2e_map")
+
