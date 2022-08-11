@@ -30,34 +30,15 @@ arc7 <- openModel('ARC007')
 results7 <- arc7$results()
 # results7$export()
 
-# Work with results ----
+# Run as scenarios ----
+# Using 'manual scenarios' 
+if(!dir.exists('VERSPM-scenarios-ms')){
+  # Say 'yes' at prompt
+  installModel("VERSPM",var="scenarios-ms") 
+}
 
-# # of trips, DVMT, # of transit trips, and Daily CO2e at Bzone level for now
-# bzone_compile = vector()
+# This should work! ARC-Scenarios should have the same structure as VERSPM-scenarios-ms, but this returns an error. Compare the setup of ARC-Scenarios with the VERSPM-scenario-ms, paying attention to the details in teh various visioneval.cnf files, including at each stage and in the scenarios directory.
+arcScenarios <- openModel('ARC-Scenarios')
 
-
-# for(mods in c('arc1', 'arc7')){
-#   
-#   model = get(mods) # arc1 or arc7
-#   
-#   futureyear = model$loadedParam_ls$Years[2]
-#   
-#   outdir = file.path(model$modelPath, 'results', 'output')
-#   
-#   outputs <- dir(outdir)
-#   
-#   # take the first one if multiple
-#   output = outputs[1]
-#   output_date <- gsub('Extract_', '', output)
-#   # Find the run date from the output
-#   run_date <- stringr::str_extract(dir(file.path(outdir, output)), '\\d{4}-\\d{2}-\\d{2}_\\d{2}-\\d{2}-\\d{2}')
-#   run_date <- unique(na.omit(run_date))
-#   
-#   bz_out = read.csv(file.path(outdir, output, paste0('_', futureyear, '_Bzone_', run_date, '.csv')))
-#   
-#   bzone_compile = rbind(bzone_compile, data.frame(Model = mods, bz_out))
-# }
-
-
-
-
+# We want to be able to do the following
+acrScenarios$run()

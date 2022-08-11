@@ -8,3 +8,5 @@ ve-lib/*
 tools/*
 walkthrough/*
 *.zip
+.Rproj.user/*
+.Rproj.user
