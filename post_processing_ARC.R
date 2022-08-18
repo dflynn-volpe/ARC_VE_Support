@@ -1,4 +1,5 @@
 # This file helps analyze ARC scenarios
+rm(ls())
 library("sf")
 library("tmap")
 library("readr")
@@ -12,8 +13,12 @@ Bzones <- read_sf("./data/Bzone/tl_2010_13_tract10.shp")
 Azones <- read_sf("./data/Azone/tl_2010_13_county10.shp")
 
 # Read results for households in both scenarios
-households_007_50 <- read_csv("./models/ARC007/results/output/Extract_2022-08-02_15-09-05/_2050_Household_2022-08-01_16-42-07.csv")
-households_001_50 <- read_csv("./models/ARC001/results/output/Extract_2022-08-04_12-11-10/_2050_Household_2022-08-01_13-14-38.csv")
+# households_007_50 <- read_csv("./models/ARC007/results/output/Extract_2022-08-02_15-09-05/_2050_Household_2022-08-01_16-42-07.csv")
+# households_001_50 <- read_csv("./models/ARC001/results/output/Extract_2022-08-04_12-11-10/_2050_Household_2022-08-01_13-14-38.csv")
+
+households_007_50 <- read_csv("./data/Results_Jay/ARCR007/_2050_Household_2022-07-18_15-05-49.csv")
+households_001_50 <- read_csv("./data/Results_Jay/ARCR001/_2050_Household_2022-07-19_12-41-37.csv")
+
 
 # Aggrregate results by B Zone
 Bzone_007_50 <- households_007_50 %>% 
@@ -96,7 +101,7 @@ scatterplot <- function(data,x,y,category,name){
     geom_point() +
     geom_abline()
 
-  ggsave(glue("./charts/",name,".png"),plot = p)
+  ggsave(glue("./charts/",name,"_",Sys.Date(),".png"),plot = p)
   p
 }
 
@@ -125,11 +130,11 @@ scenario_map <- function(data,col,name){
   p <- tm_shape(data)+
     tm_fill(col = col , palette = "YlOrRd")
   
-  tmap_save(p, paste0("./charts/",name,".png"))
+  tmap_save(p, paste0("./charts/",name,"_",Sys.Date(),".png"))
   p
 }
-
-scenario_map(Azones_2050,"walktrips","Azones_walktrips_map")
+x
+scenario_map(Azones_2050,"walktrips","Azones_walktrips_map")x
 scenario_map(Azones_2050,"biketrips","Azones_biketrips_map")
 scenario_map(Azones_2050,"transitTrips","Azones_transitTrips_map")
 scenario_map(Azones_2050,"VehicleTrips","Azones_VehicleTrips_map")
